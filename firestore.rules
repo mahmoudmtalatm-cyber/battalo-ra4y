@@ -7,6 +7,11 @@ service cloud.firestore {
     function inRoom() { return resource.data.u0 == me() || resource.data.u1 == me(); }
     function mine() { return resource.data.from == me() || resource.data.to == me(); }
     function oldVal(f) { return resource == null ? 0 : resource.data[f]; }
+    function note() {
+      return request.resource.data[me()].n is string && request.resource.data[me()].n.size() <= 16
+        && request.resource.data[me()].x is string && request.resource.data[me()].x.size() <= 80
+        && request.resource.data[me()].t == request.time;
+    }
     function upBy(f, n) {
       return request.resource.data[f] >= oldVal(f) && request.resource.data[f] <= oldVal(f) + n;
     }
@@ -30,6 +35,26 @@ service cloud.firestore {
         && request.resource.data.text.size() >= 1
         && request.resource.data.text.size() <= 300
         && request.resource.data.ts == request.time;
+    }
+
+    // private chat: dms/{uidA_uidB}/msgs/{id} - only the two people in the pair can read or write
+    match /dms/{pair}/msgs/{id} {
+      allow read: if signedIn() && pair.split('_').size() == 2 && me() in pair.split('_');
+      allow create: if signedIn() && pair.split('_').size() == 2 && me() in pair.split('_')
+        && request.resource.data.keys().hasOnly(['from', 'text', 'ts'])
+        && request.resource.data.from == me()
+        && request.resource.data.text is string
+        && request.resource.data.text.size() >= 1
+        && request.resource.data.text.size() <= 300
+        && request.resource.data.ts == request.time;
+    }
+
+    // inbox/{uid}: latest message from each sender. Only you read it; anyone may write only THEIR OWN key into it.
+    match /inbox/{id} {
+      allow read: if signedIn() && id == me();
+      allow create: if signedIn() && request.resource.data.keys().hasOnly([me()]) && note();
+      allow update: if signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([me()]) && note();
     }
 
     match /invites/{id} {

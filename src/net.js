@@ -10,9 +10,12 @@
    - Presence is one tiny write every few minutes, not every 15 seconds.
    - No ghost clean-up deletes, no connection watcher, no clock re-reads.
    - Points use a single increment write (no read-then-write transaction).
-   Always-on listeners: incoming invites (changes only) and the current room.
+   Always-on listeners: incoming invites and your private-message inbox (both only cost
+   when something arrives) and the current room.
 
    Collections:  players/{uid}  chat/{id}  invites/{id}  rooms/{id}  leaderboard/{uid}
+                 dms/{pair}/msgs/{id}  private chat (pair = both uids, sorted, joined by "_")
+                 inbox/{uid}           one small doc per person: last message from each sender
    (the leaderboard row also holds the display name)
    ===================================================================== */
 const NET = (() => {
@@ -37,6 +40,9 @@ const NET = (() => {
   let fresh = {}, playersAt = 0, playersBusy = null;
   let lbRows = null, lbAt = 0, lbBusy = null;
   let chatUnsub = null, chatLastTs = null;
+  let dmUnsub = null;
+  const dmLast = {}, dmSeen = new Set();   // per-peer newest timestamp / seen message ids
+  const pairKey = (peer) => [uid, peer].sort().join('_');
   const seenChat = new Set();
   const invitesIn = {};              // inviteId -> data (so replying needs no read)
   const outgoing = {};               // inviteId -> { to, timer, unsub }
@@ -186,6 +192,7 @@ const NET = (() => {
       await goOnline();
     } catch (e) { started = false; throw e; }
     attachInvites();
+    attachInbox();
     window.addEventListener('pagehide', () => { try { if (room) room.ref.delete(); pdoc().delete(); } catch (e) { /* best effort */ } });
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && welcomed && Date.now() - lastBeat > HEARTBEAT / 2) beat().catch(() => {});
@@ -211,6 +218,34 @@ const NET = (() => {
       rows.forEach((v) => { if (v.text) emit({ t: 'chat', from: v.from, name: v.name, text: v.text, ts: ms(v.ts) || Date.now(), hist: first }); });
     }, () => {});
   };
+
+  /* ------------------------------------------------------------ private chat */
+  /* Messages of one conversation, listened to only while that chat is open (null = close). */
+  api.dmWatch = function (peer) {
+    if (dmUnsub) { dmUnsub(); dmUnsub = null; }
+    if (!peer || !db || !welcomed) return;
+    const col = db.collection('dms/' + pairKey(peer) + '/msgs');
+    const q = dmLast[peer] ? col.orderBy('ts').startAfter(dmLast[peer]) : col.orderBy('ts', 'desc').limit(30);
+    dmUnsub = q.onSnapshot((s) => {
+      const add = [];
+      s.docChanges().forEach((c) => {
+        const t = c.doc.data().ts;                          // null while our own message is pending
+        if (t && (!dmLast[peer] || t.toMillis() > dmLast[peer].toMillis())) dmLast[peer] = t;
+        if (c.type === 'added' && !dmSeen.has(c.doc.id)) { dmSeen.add(c.doc.id); add.push(c.doc); }
+      });
+      add.map((d) => Object.assign({ id: d.id }, d.data(EST))).sort((a, b) => ms(a.ts) - ms(b.ts))
+        .forEach((v) => { if (v.text) emit({ t: 'dm', peer, from: v.from, text: v.text, ts: ms(v.ts) || Date.now() }); });
+    }, () => {});
+  };
+
+  /* inbox/{me}: one tiny doc holding the latest message from each sender (unread badges, "Messages" list) */
+  function attachInbox() {
+    db.doc('inbox/' + uid).onSnapshot((s) => {
+      const d = s.exists ? s.data() : {}, map = {};
+      Object.keys(d).forEach((id) => { const v = d[id]; if (v && typeof v === 'object') map[id] = { n: v.n || '?', x: v.x || '', t: ms(v.t) || 0 }; });
+      emit({ t: 'inbox', map });
+    }, () => {});
+  }
 
   /* ------------------------------------------------------------ invites */
   function attachInvites() {
@@ -318,6 +353,12 @@ const NET = (() => {
       case 'chat': {
         const text = clean(m.text, 300); if (!text) return;
         db.collection('chat').add({ from: uid, name: myName, text, ts: TS() }).catch(() => {});
+        break;
+      }
+      case 'dm': {
+        const text = clean(m.text, 300); if (!text || !m.to || m.to === uid) return;
+        db.collection('dms/' + pairKey(m.to) + '/msgs').add({ from: uid, text, ts: TS() }).catch(() => {});
+        db.doc('inbox/' + m.to).set({ [uid]: { n: myName, x: text.slice(0, 80), t: TS() } }, { merge: true }).catch(() => {});
         break;
       }
       case 'invite': invite(m); break;

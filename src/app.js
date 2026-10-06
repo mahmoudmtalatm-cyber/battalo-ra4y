@@ -1,7 +1,7 @@
 /* =====================================================================
    Battalo Ra4y - app: connection, lobby, invites, views, game host
    ===================================================================== */
-const GAME_ORDER = ['chess', 'sudoku', 'xo', 'c4', 'rps', 'memory'];
+const GAME_ORDER = ['chess', 'sudoku', 'xo', 'c4'];
 
 /* ------------------------------------------------------------- session */
 const wsSend = (o) => { if (S.online) NET.send(o); };
@@ -34,6 +34,22 @@ function onServer(m) {
       renderLobby(); renderHome();
       if (S.game && S.game.sheetRefresh) S.game.sheetRefresh();
       refreshOpenSheets();
+      break;
+    case 'inbox': {
+      const first = !S.inboxLoaded; S.inboxLoaded = true;
+      Object.keys(m.map).forEach((id) => {
+        const v = m.map[id], old = S.inbox[id];
+        if (S.dmOpen === id) return;
+        if (!first && (!old || v.t > old.t)) { toast(v.n + ': ' + v.x, 3600); vibrate(50); }
+      });
+      S.inbox = m.map;
+      if (S.dmOpen) markRead(S.dmOpen);
+      renderLobby(); updateBadges();
+      break;
+    }
+    case 'dm':
+      (S.dm[m.peer] = S.dm[m.peer] || []).push(m); if (S.dm[m.peer].length > 200) S.dm[m.peer].shift();
+      refreshChats('dm:' + m.peer);
       break;
     case 'chat':
       S.chat.push(m); if (S.chat.length > 300) S.chat.shift();
@@ -113,7 +129,8 @@ function updateBadges() {
     S.game.badge.hidden = !n; S.game.badge.textContent = n > 9 ? '9+' : n;
   }
   const inv = $('#lobbyBadge');
-  inv.hidden = !S.invites.length; inv.textContent = S.invites.length;
+  const n = S.invites.length + unreadCount();
+  inv.hidden = !n; inv.textContent = n > 9 ? '9+' : n;
 }
 function renderAll() { renderHome(); renderLobby(); renderRanks(); renderWatch(); renderStats(); updateBadges(); setConn(); }
 
@@ -183,7 +200,7 @@ function renderHome() {
     h('div', { class: 'h2', text: 'Coming soon' }),
     h('button', { class: 'game-card wide tint6', onclick: () => showView('watch') },
       h('div', { class: 'ico', html: icoSvg('tv') }),
-      h('div', { class: 'grow' }, h('b', { text: 'Movies & TV shows' }), h('div', { class: 'muted small', text: 'Watch together, right here.' })),
+      h('div', { class: 'grow' }, h('b', { text: 'Watch' }), h('div', { class: 'muted small', text: 'Coming soon.' })),
       h('span', { class: 'ribbon', text: 'Soon' })),
     h('p', { class: 'muted small', style: { textAlign: 'center', marginTop: '22px' }, text: 'Less talking, more playing 😉' }));
 }
@@ -201,38 +218,100 @@ async function shareGame() {
   try { await navigator.clipboard.writeText(url); toast('Link copied'); } catch (e) { toast(url); }
 }
 
+/* ------------------------------------------------- search, player rows, private chat */
+const searchQ = { lobby: '', sheet: '' };
+
+/* re-rendering replaces the search box; put the cursor back where it was */
+function keepFocus(fn) {
+  const a = document.activeElement, id = a && a.dataset && a.dataset.q, pos = id ? a.selectionStart : 0;
+  fn();
+  if (id) { const n = document.querySelector('[data-q="' + id + '"]'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { /* ignore */ } } }
+}
+
+const avatarOf = (name, style) => h('div', { class: 'avatar', text: String(name || '?').charAt(0).toUpperCase(), style: style || { background: 'linear-gradient(145deg,#7fe0cf,#18a5b8)' } });
+
+function playerRow(p, actions) {
+  return h('div', { class: 'player' + (p.status !== 'free' ? ' busy' : '') },
+    avatarOf(p.name),
+    h('div', { class: 'grow', style: { minWidth: 0 } }, h('b', { class: 'ellip', text: p.name }), h('div', { class: 'st' }, h('i'), p.status === 'free' ? 'Free to play' : 'In a game')),
+    actions);
+}
+
+/* search box + list of ONLINE players only; actions(p) returns the buttons for a row */
+function playersPanel(key, actions) {
+  const input = h('input', { type: 'search', class: 'search', placeholder: 'Search online players…', autocomplete: 'off', 'aria-label': 'Search online players', 'data-q': key, value: searchQ[key] });
+  const list = h('div', { class: 'plist' });
+  const draw = () => {
+    const q = searchQ[key].trim().toLowerCase(), all = others();
+    const arr = all.filter((p) => !q || p.name.toLowerCase().includes(q));
+    list.replaceChildren(...(arr.length ? arr.map((p) => playerRow(p, actions(p)))
+      : [h('div', { class: 'card empty' }, h('div', { class: 'big', text: S.playersLoading ? '⏳' : '🛰️' }),
+        h('b', { text: S.playersLoading ? 'Looking for friends…' : all.length ? 'No online player matches “' + searchQ[key].trim() + '”' : 'Nobody else is online' }),
+        all.length || S.playersLoading ? null : h('div', { class: 'small', style: { marginTop: '4px' }, text: 'Share the link below, then tap refresh when they have joined.' }))]));
+  };
+  input.addEventListener('input', () => { searchQ[key] = input.value; draw(); });
+  draw();
+  return h('div', null, input, list);
+}
+
+function unreadCount() { const r = store.get('dmread', {}); return Object.keys(S.inbox).filter((id) => S.inbox[id].t > (r[id] || 0)).length; }
+function markRead(id) { const r = store.get('dmread', {}); r[id] = S.inbox[id] ? S.inbox[id].t : Date.now(); store.set('dmread', r); }
+
+/* private chat with one person: a sheet that listens only while it is open */
+function openDm(id, name) {
+  if (!S.online || !id || id === S.me.id) return;
+  closeDm();
+  S.dmOpen = id; S.dm[id] = S.dm[id] || []; markRead(id);
+  const box = ChatBox('dm:' + id);
+  let close;
+  const body = h('div', { class: 'dm-sheet' },
+    h('div', { class: 'row', style: { marginBottom: '8px' } },
+      avatarOf(name),
+      h('div', { class: 'grow', style: { minWidth: 0 } }, h('b', { class: 'ellip', text: name }), h('div', { class: 'muted small', text: 'Private chat' })),
+      h('button', { class: 'iconbtn', 'aria-label': 'Close chat', onclick: () => close() }, ico('close'))),
+    box.el);
+  close = openSheet(body, { onClose: () => { box.destroy(); if (S.dmOpen === id) { S.dmOpen = null; NET.dmWatch(null); } renderLobby(); updateBadges(); } });
+  S.dmClose = close;
+  NET.dmWatch(id); box.render(); renderLobby(); updateBadges();
+}
+function closeDm() { if (S.dmClose) { const c = S.dmClose; S.dmClose = null; c(); } }
+
 function renderLobby() {
-  const root = $('#lobbyView');
-  const initial = (S.me.name || '?').trim().charAt(0).toUpperCase();
-  const list = others();
-  const url = shareUrl();
+  keepFocus(() => {
+    const root = $('#lobbyView');
+    const url = shareUrl();
 
-  const meCard = h('div', { class: 'card me-card' },
-    h('div', { class: 'avatar', text: initial }),
-    h('div', { class: 'grow' }, h('b', { text: S.me.name || 'You' }), h('div', { class: 'muted small', text: 'Signed in with Google · visible to friends in the lobby' })),
-    h('button', { class: 'iconbtn', 'aria-label': 'Edit name', onclick: () => openNameSheet(false) }, ico('edit')));
+    const meCard = h('div', { class: 'card me-card' },
+      avatarOf(S.me.name, {}),
+      h('div', { class: 'grow' }, h('b', { text: S.me.name || 'You' }), h('div', { class: 'muted small', text: 'Signed in with Google · visible to friends in the lobby' })),
+      h('button', { class: 'iconbtn', 'aria-label': 'Edit name', onclick: () => openNameSheet(false) }, ico('edit')));
 
-  const refreshBtn = h('button', { class: 'iconbtn', 'aria-label': 'Refresh players', disabled: S.playersLoading, onclick: () => loadPlayers(true) }, ico('refresh'));
-  const players = list.length
-    ? h('div', { class: 'plist' }, list.map((p) => h('div', { class: 'player' + (p.status !== 'free' ? ' busy' : '') },
-      h('div', { class: 'avatar', text: p.name.charAt(0).toUpperCase(), style: { background: 'linear-gradient(145deg,#7fe0cf,#18a5b8)' } }),
-      h('div', { class: 'grow' }, h('b', { text: p.name }), h('div', { class: 'st' }, h('i'), p.status === 'free' ? 'Free to play' : 'In a game')),
-      h('button', { class: 'btn primary sm', text: 'Invite', disabled: p.status !== 'free', onclick: () => openGamePicker(p.id) }))))
-    : h('div', { class: 'card empty' }, h('div', { class: 'big', text: S.playersLoading ? '⏳' : '🛰️' }),
-      h('b', { text: S.playersLoading ? 'Looking for friends…' : 'Nobody else is online' }),
-      h('div', { class: 'small', style: { marginTop: '4px' }, text: 'Share the link below, then tap refresh when they have joined.' }));
+    const read = store.get('dmread', {});
+    const convos = Object.keys(S.inbox).map((id) => Object.assign({ id }, S.inbox[id])).sort((a, b) => b.t - a.t).slice(0, 8);
+    const messages = convos.length ? [
+      h('div', { class: 'h2', text: 'Messages' }),
+      h('div', { class: 'plist' }, convos.map((c) => h('button', { class: 'player', style: { textAlign: 'left', width: '100%' }, onclick: () => openDm(c.id, c.n) },
+        avatarOf(c.n),
+        h('div', { class: 'grow', style: { minWidth: 0 } }, h('b', { class: 'ellip', text: c.n }), h('div', { class: 'muted small ellip', text: c.x })),
+        c.t > (read[c.id] || 0) ? h('i', { class: 'udot', 'aria-label': 'Unread' }) : null)))] : [];
 
-  const inviteCard = h('div', { class: 'card' },
-    h('b', { text: 'Invite friends' }),
-    h('div', { class: 'qr', html: makeQR(url) }),
-    h('div', { style: { textAlign: 'center' } }, h('span', { class: 'urlchip', text: url.replace(/^https?:\/\//, '') })),
-    h('button', { class: 'btn primary block sm', style: { marginTop: '12px' }, text: 'Share link', onclick: shareGame }),
-    h('button', { class: 'btn block sm', style: { marginTop: '8px' }, text: 'How does it work?', onclick: () => openHelp() }));
+    const refreshBtn = h('button', { class: 'iconbtn', 'aria-label': 'Refresh players', disabled: S.playersLoading, onclick: () => loadPlayers(true) }, ico('refresh'));
+    const panel = playersPanel('lobby', (p) => h('div', { class: 'row', style: { gap: '8px', flex: 'none' } },
+      h('button', { class: 'iconbtn', 'aria-label': 'Message ' + p.name, onclick: () => openDm(p.id, p.name) }, ico('chat')),
+      h('button', { class: 'btn primary sm', text: 'Invite', disabled: p.status !== 'free', onclick: () => openGamePicker(p.id) })));
 
-  root.replaceChildren(
-    h('div', { class: 'h2', text: 'You' }), meCard,
-    h('div', { class: 'row-h' }, h('div', { class: 'h2', text: 'Players online' }), refreshBtn), players,
-    h('div', { class: 'h2', text: 'Share the game' }), inviteCard);
+    const inviteCard = h('div', { class: 'card' },
+      h('b', { text: 'Invite friends' }),
+      h('div', { class: 'qr', html: makeQR(url) }),
+      h('div', { style: { textAlign: 'center' } }, h('span', { class: 'urlchip', text: url.replace(/^https?:\/\//, '') })),
+      h('button', { class: 'btn primary block sm', style: { marginTop: '12px' }, text: 'Share link', onclick: shareGame }),
+      h('button', { class: 'btn block sm', style: { marginTop: '8px' }, text: 'How does it work?', onclick: () => openHelp() }));
+
+    root.replaceChildren(
+      h('div', { class: 'h2', text: 'You' }), meCard, ...messages,
+      h('div', { class: 'row-h' }, h('div', { class: 'h2', text: 'Players online' }), refreshBtn), panel,
+      h('div', { class: 'h2', text: 'Share the game' }), inviteCard);
+  });
 }
 
 /* ---------------------------------------------------------- leaderboard */
@@ -274,15 +353,11 @@ function renderRanks() {
 }
 
 function renderWatch() {
-  const items = [['🎬', 'Movies'], ['📺', 'TV Shows'], ['🍥', 'Anime'], ['🎞️', 'Documentaries'], ['📡', 'Live TV'], ['🎵', 'Music']];
   $('#watchView').replaceChildren(
     h('div', { class: 'soon-hero', style: { marginTop: '8px' } },
       h('div', { class: 'big', text: '🍿' }),
-      h('h3', { text: 'Movies & TV shows', style: { margin: '6px 0' } }),
-      h('p', { class: 'muted', style: { margin: '0 0 10px' }, text: 'A cozy corner to watch together is on its way.' }),
-      h('span', { class: 'ribbon', text: 'Coming soon' })),
-    h('div', { class: 'watch-grid' }, items.map(([e, n]) => h('div', { class: 'watch-card' },
-      h('span', { class: 'ribbon', text: 'Soon' }), h('div', { class: 'ico', text: e }), h('b', { text: n }), h('span', { class: 'muted small', text: 'Coming soon' })))));
+      h('h3', { text: 'Coming soon', style: { margin: '6px 0' } }),
+      h('span', { class: 'ribbon', text: 'Soon' })));
 }
 
 /* ----------------------------------------------------------------- sheets */
@@ -292,7 +367,8 @@ function openHelp() {
     h('ol', { class: 'steps' },
       h('li', { text: 'Share the game link (or QR code) from the Lobby tab.' }),
       h('li', { text: 'When your friend opens it and signs in with Google, they show up in your lobby (tap refresh).' }),
-      h('li', { text: 'Pick a game, tap Invite, and the other player gets a request to accept.' }),
+      h('li', { text: 'Pick a game, search for a player who is online, tap Invite, and they get a request to accept.' }),
+      h('li', { text: 'Tap the chat button next to a player to message them privately.' }),
       h('li', { text: 'Win games to earn points and climb the leaderboard. Every game has its own chat.' })),
     h('button', { class: 'btn primary block', style: { marginTop: '16px' }, text: 'Got it', onclick: (e) => e.target.closest('.backdrop').remove() })));
 }
@@ -308,8 +384,6 @@ function openPointsHelp() {
     h('div', { class: 'h2', style: { margin: '14px 0 4px' }, text: 'Solo wins vs the computer' }),
     row('Tic-Tac-Toe', P.solo.xo.easy + ' easy · ' + P.solo.xo.hard + ' unbeatable'),
     row('Connect 4', P.solo.c4.easy + ' · ' + P.solo.c4.medium + ' · ' + P.solo.c4.hard),
-    row('Rock Paper Scissors', P.solo.rps['1'] + ' · ' + P.solo.rps['3'] + ' · ' + P.solo.rps['5'] + ' (first to 1 · 3 · 5)'),
-    row('Memory Match', P.solo.memory.s + ' · ' + P.solo.memory.m + ' · ' + P.solo.memory.l + ' (small · medium · large)'),
     row('Chess', P.solo.chess['1'] + ' · ' + P.solo.chess['2'] + ' · ' + P.solo.chess['3'] + ' · ' + P.solo.chess['4'] + ' · ' + P.solo.chess['5'] + ' (level 1-5)'),
     row('Sudoku', P.solo.sudoku.easy + ' · ' + P.solo.sudoku.medium + ' · ' + P.solo.sudoku.hard + ' · ' + P.solo.sudoku.expert + ' (minus hints and mistakes)'),
     h('p', { class: 'muted small', style: { margin: '10px 0 0' }, text: 'Draws vs the computer give a third of a win. Leaving a game early gives no points.' }),
@@ -365,6 +439,7 @@ function refreshOpenSheets() { sheetRefreshers.forEach((f) => f()); }
 
 function openGameSheet(id, targetId) {
   const def = GAMES[id];
+  searchQ.sheet = '';
   if (S.online && (!targetId || !S.playersLoaded) && def.multi) loadPlayers(false);
   const saved = store.get('o_' + id, {});
   const opts = {};
@@ -393,18 +468,10 @@ function openGameSheet(id, targetId) {
     } else if (targetId) {
       parts.push(h('button', { class: 'btn primary block', disabled: !target || target.status !== 'free', text: target ? 'Send request to ' + target.name : 'Player left', onclick: () => { sendInvite(targetId, def, opts); close(); } }));
     } else {
-      const free = others();
-      parts.push(h('label', { class: 't', style: { display: 'block', fontSize: '12.5px', fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 8px' }, text: 'Who do you want to play with?' }));
-      parts.push(free.length
-        ? h('div', { class: 'plist' }, free.map((p) => h('div', { class: 'player' + (p.status !== 'free' ? ' busy' : '') },
-          h('div', { class: 'avatar', text: p.name.charAt(0).toUpperCase(), style: { background: 'linear-gradient(145deg,#7fe0cf,#18a5b8)' } }),
-          h('div', { class: 'grow' }, h('b', { text: p.name }), h('div', { class: 'st' }, h('i'), p.status === 'free' ? 'Free to play' : 'In a game')),
-          h('button', { class: 'btn primary sm', text: 'Invite', disabled: p.status !== 'free', onclick: () => { sendInvite(p.id, def, opts); close(); } }))))
-        : h('div', { class: 'card empty' }, h('div', { class: 'big', text: '🛰️' }), h('b', { text: 'Nobody else is online yet' }),
-          h('div', { class: 'small', text: 'Share the game link from the Lobby tab.' }),
-          h('button', { class: 'btn sm', style: { marginTop: '10px' }, text: 'Open lobby', onclick: () => { close(); showView('lobby'); } })));
+      parts.push(h('label', { class: 't', style: { display: 'block', fontSize: '12.5px', fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--muted)', margin: '0 0 8px' }, text: 'Search an online player to invite' }));
+      parts.push(playersPanel('sheet', (p) => h('button', { class: 'btn primary sm', style: { flex: 'none' }, text: 'Invite', disabled: p.status !== 'free', onclick: () => { sendInvite(p.id, def, opts); close(); } })));
     }
-    body.replaceChildren(...parts);
+    keepFocus(() => body.replaceChildren(...parts));
   };
   render();
   close = openSheet(body, { onClose: () => sheetRefreshers.delete(render) });
@@ -448,6 +515,7 @@ function renderInvites() {
 
 /* ------------------------------------------------------------- game host */
 function startRoom(m) {
+  S.dmClose = null; S.dmOpen = null; NET.dmWatch(null);
   closeAllSheets(); S.pendingOut = null; S.invites = []; renderInvites();
   const def = GAMES[m.game];
   if (!def) { toast('This device does not know that game'); wsSend({ t: 'leave_room' }); return; }

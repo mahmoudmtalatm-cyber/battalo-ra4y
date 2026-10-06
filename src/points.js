@@ -7,8 +7,6 @@ const POINTS = {
   solo: {
     xo: { easy: 2, hard: 6 },
     c4: { easy: 2, medium: 4, hard: 7 },
-    rps: { '1': 1, '3': 3, '5': 5 },
-    memory: { s: 3, m: 5, l: 8 },
     chess: { '1': 2, '2': 4, '3': 7, '4': 10, '5': 14 },
     sudoku: { easy: 6, medium: 10, hard: 15, expert: 20 },
   },

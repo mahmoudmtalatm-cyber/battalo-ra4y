@@ -110,6 +110,7 @@ const S = {
   view: 'home',
   chat: [], roomChat: [],
   unreadRoom: 0,
+  dm: {}, inbox: {}, dmOpen: null,       // private chat: messages per person, latest message per sender, open conversation
   game: null,         // {def, mode, opts, inst, root, room}
   room: null,         // {id, players, idx}
   pendingOut: null,
@@ -148,12 +149,14 @@ const QUICK = ['👍', '😂', '😮', '🔥', '👏', 'GG', '😎', '🤝'];
 function ChatBox(kind) {
   const el = h('div', { class: 'chat' });
   const list = h('div', { class: 'msgs' });
-  const input = h('input', { type: 'text', placeholder: kind === 'room' ? 'Message your opponent…' : 'Message everyone…', maxlength: '300', enterkeyhint: 'send', autocomplete: 'off' });
+  const peer = kind.slice(0, 3) === 'dm:' ? kind.slice(3) : null;
+  const input = h('input', { type: 'text', placeholder: peer ? 'Write a private message…' : kind === 'room' ? 'Message your opponent…' : 'Message everyone…', maxlength: '300', enterkeyhint: 'send', autocomplete: 'off' });
   const send = (txt) => {
     txt = (txt || '').trim();
     if (!txt) return;
     if (kind === 'room' && !S.room) { toast('Not in a multiplayer game'); return; }
-    wsSend({ t: kind === 'room' ? 'room_chat' : 'chat', text: txt });
+    if (peer) wsSend({ t: 'dm', to: peer, text: txt });
+    else wsSend({ t: kind === 'room' ? 'room_chat' : 'chat', text: txt });
   };
   const quick = h('div', { class: 'quick' }, QUICK.map((e) => h('button', { type: 'button', text: e, onclick: () => send(e) })));
   const form = h('form', { class: 'composer', onsubmit: (e) => { e.preventDefault(); send(input.value); input.value = ''; } },
@@ -162,15 +165,15 @@ function ChatBox(kind) {
   const box = {
     el, input,
     render() {
-      const msgs = kind === 'room' ? S.roomChat : S.chat;
+      const msgs = peer ? (S.dm[peer] || []) : kind === 'room' ? S.roomChat : S.chat;
       list.replaceChildren(...msgs.map((m) => {
         if (m.sys) return h('div', { class: 'msg sys', text: m.text });
         const mine = m.from === S.me.id;
         return h('div', { class: 'msg' + (mine ? ' mine' : '') },
-          mine ? null : h('div', { class: 'who', text: m.name }),
+          mine || peer ? null : h('div', { class: 'who', text: m.name }),
           h('span', { text: m.text }), h('span', { class: 'tm', text: clockStr(m.ts) }));
       }));
-      if (!msgs.length) list.append(h('div', { class: 'empty' }, h('div', { class: 'big', text: '💬' }), kind === 'room' ? 'Say something to your opponent.' : 'Say hi 👋 Everyone online can see this chat.'));
+      if (!msgs.length) list.append(h('div', { class: 'empty' }, h('div', { class: 'big', text: '💬' }), peer ? 'Say hi 👋 Only the two of you can see this chat.' : kind === 'room' ? 'Say something to your opponent.' : 'Say hi 👋 Everyone online can see this chat.'));
       list.scrollTop = list.scrollHeight;
     },
     destroy() { chatBoxes.delete(box); },

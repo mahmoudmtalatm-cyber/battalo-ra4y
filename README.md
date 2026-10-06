@@ -35,7 +35,11 @@ firestore.rules        paste into Firebase -> Firestore -> Rules
 - **Google sign-in** - one tap, and your name and points follow you on every device. Tap your name in the top bar to change it or sign out.
 - **Leaderboard** - top 50 on the *Ranks* tab. Points are earned per finished game (see the ⓘ button in *Ranks*). Solo wins scale with
   difficulty, friend games give more. Edit the values in `src/points.js`, then run `node build.js`.
+- **Games** - Chess (Stockfish), Sudoku, Tic-Tac-Toe and Connect 4, solo or against a friend.
+- **Invites by search** - pick a game, search the online players by name, tap Invite. The Lobby tab has the same search.
+- **Private chat** - tap the chat button next to an online player (or a name under *Messages*) to talk one-to-one. Unread messages show a badge on the Lobby tab.
 - **Lobby, invites, per-game chat and 2-player games** run on Firestore.
+- **Watch** tab is just a "Coming soon" page for now.
 - **Install to home screen** - Android/desktop Chrome shows an *Install* card; iPhone shows how to use *Add to Home Screen*.
 - No connection checker, no offline page and no service-worker caching (`sw.js` only makes the app installable).
 
@@ -52,7 +56,9 @@ Nothing polls and nothing listens in the background:
   then only newer messages when it is reopened.
 - **Leaderboard** is one fetch (50 rows) when *Ranks* opens, cached for 3 minutes, plus a manual refresh button.
 - **Points** are one write using a server-side increment (no read-then-write transaction). Own stats are read once at sign-in.
-- **Invites** are the only always-on listener (it only costs when an invite arrives). A live 2-player game listens to its one room document.
+- **Private chat** listens to one conversation only while its window is open (last 30 messages, then only newer ones). Each message is
+  2 writes (the message + a tiny note in the receiver's `inbox/{uid}` document that drives the unread badge).
+- **Invites and the inbox** are the only always-on listeners (they cost reads only when something arrives). A live 2-player game listens to its one room document.
 - The *names* collection (unique-name reservation) is gone: it cost extra reads and writes on every sign-in and rename.
   Display names no longer have to be unique - Google accounts identify players.
 

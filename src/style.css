@@ -150,11 +150,6 @@ input{font:inherit;color:inherit}
 .soon-hero{background:linear-gradient(135deg,#e1f0ff,#f6fbff);border:1px dashed var(--p2);border-radius:22px;padding:22px 18px;text-align:center}
 .soon-hero .big{font-size:44px}
 .ribbon{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:999px;background:var(--warn);color:#fff}
-.watch-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
-.watch-card{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:16px 14px;display:flex;flex-direction:column;gap:8px;position:relative;opacity:.92}
-.watch-card .ico{font-size:30px}
-.watch-card .ribbon{position:absolute;top:10px;right:10px;font-size:9.5px;padding:3px 8px}
-.watch-card b{margin-top:6px}
 
 /* ---------- game screen ---------- */
 .game-screen{position:fixed;inset:0;z-index:40;background:linear-gradient(180deg,var(--bg2),var(--bg));display:flex;flex-direction:column;max-width:560px;margin:0 auto}
@@ -259,29 +254,6 @@ input{font:inherit;color:inherit}
 .c4 .slot.win{box-shadow:0 0 0 4px #fff,inset 0 3px 6px rgba(14,60,130,.35)}
 .c4 .slot.lastm{outline:3px solid rgba(255,255,255,.7)}
 
-/* ---------- rps ---------- */
-.rps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px auto;max-width:400px}
-.rps button{aspect-ratio:1;background:#fff;border:1.5px solid var(--line);border-radius:22px;font-size:46px;display:grid;place-items:center;box-shadow:var(--shadow-s)}
-.rps button.pick{border-color:var(--p);background:var(--soft);transform:scale(1.04)}
-.rps button[disabled]{opacity:.5;pointer-events:none}
-.arena{display:flex;align-items:center;justify-content:center;gap:16px;margin:10px 0;min-height:110px}
-.arena .hand{width:96px;height:96px;border-radius:26px;background:#fff;border:1.5px solid var(--line);display:grid;place-items:center;font-size:52px;box-shadow:var(--shadow-s)}
-.arena .hand.win{border-color:var(--ok);background:#e3fbf1}.arena .hand.lose{opacity:.55}
-.arena .vs{font-weight:800;color:var(--muted)}
-.rounds{display:flex;gap:6px;justify-content:center;margin:6px 0}
-.rounds i{width:12px;height:12px;border-radius:50%;background:var(--soft2)}
-.rounds i.w{background:var(--ok)}.rounds i.l{background:var(--bad)}.rounds i.d{background:var(--warn)}
-
-/* ---------- memory ---------- */
-.mem{display:grid;gap:8px;margin:12px auto;max-width:440px;width:100%}
-.mem .card3d{aspect-ratio:1;perspective:600px;cursor:pointer}
-.mem .inner{position:relative;width:100%;height:100%;transition:transform .35s;transform-style:preserve-3d}
-.mem .card3d.up .inner,.mem .card3d.done .inner{transform:rotateY(180deg)}
-.mem .f,.mem .b{position:absolute;inset:0;border-radius:14px;display:grid;place-items:center;backface-visibility:hidden;-webkit-backface-visibility:hidden}
-.mem .b{background:linear-gradient(145deg,#5fb0ff,var(--p));box-shadow:var(--shadow-s);color:rgba(255,255,255,.7);font-size:24px}
-.mem .f{background:#fff;border:1.5px solid var(--line);transform:rotateY(180deg);font-size:clamp(24px,8vw,38px)}
-.mem .card3d.done .f{background:#e3fbf1;border-color:var(--ok)}
-.mem .card3d.mine .f{background:#e0efff;border-color:var(--p)}.mem .card3d.theirs .f{background:#dff6f8;border-color:var(--teal)}
 .pill.me{background:var(--soft);border-color:var(--p);color:var(--pd)}
 .pill.th{background:#dff6f8;border-color:var(--teal);color:#0b7c8b}
 .seg.stretch button{flex:1}
@@ -356,3 +328,12 @@ button.player{font:inherit;color:inherit;cursor:pointer}
 /* ---- Google sign-in button ---- */
 .gbtn{background:#fff;border:1.5px solid var(--soft2);color:#1f2d3d;min-height:48px;gap:10px;font-weight:700}
 .gbtn:disabled{opacity:.6}
+
+/* ---- search box, private chat, messages ---- */
+.search{width:100%;height:46px;border-radius:14px;border:1.5px solid var(--line);padding:0 14px;margin:0 0 10px;outline:none;background:#fff;font:inherit;-webkit-appearance:none;appearance:none}
+.search:focus{border-color:var(--p)}
+.ellip{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.udot{flex:none;width:11px;height:11px;border-radius:50%;background:var(--bad);box-shadow:0 0 0 3px rgba(238,90,108,.2)}
+.dm-sheet .chat{height:min(58vh,480px)}
+.player.busy .btn[disabled]{opacity:.5}
+@media (min-width:700px){.dm-sheet .chat{height:min(60vh,540px)}}
