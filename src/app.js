@@ -572,7 +572,7 @@ let loaderDone = false, bootDone = false;
 
 function showFatal(kind) {
   const msg = {
-    config: ['Firebase is not set up yet', 'Fill in public/firebase-config.js with your Firebase web-app settings (see the README), then reload.'],
+    config: ['Firebase is not set up yet', 'Fill in firebase-config.js with your Firebase web-app settings (see the README), then reload.'],
     google: ['Google sign-in is off', 'In the Firebase console open Authentication → Sign-in method and enable “Google”.'],
     domain: ['This website is not allowed to sign in', 'In the Firebase console open Authentication → Settings → Authorized domains and add this site’s domain.'],
     rules: ['Database is not ready', 'In the Firebase console create a Firestore database and publish firestore.rules (see the README), then reload.'],

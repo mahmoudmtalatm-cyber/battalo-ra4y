@@ -10,15 +10,26 @@ Only two Firebase products are used: **Authentication** (Google sign-in) and **C
 3. **Build → Firestore Database → Create database** (any location, *production mode*).
 4. Firestore → **Rules** tab → paste the contents of `firestore.rules` → **Publish**.
 5. **Project settings (gear) → General → Your apps → Web (`</>`)** → register an app → copy the `firebaseConfig`
-   values into `public/firebase-config.js` (`apiKey`, `authDomain`, `projectId`, `appId`).
+   values into `firebase-config.js` (`apiKey`, `authDomain`, `projectId`, `appId`).
 6. After the site is live: **Authentication → Settings → Authorized domains → Add** `YOUR-USER.github.io`
    (needed or Google sign-in is refused).
 
 ## 2. Publish on GitHub Pages
-1. Push this folder to a GitHub repo (branch `main`).
-2. Repo **Settings → Pages → Source: GitHub Actions**. The included workflow (`.github/workflows/pages.yml`)
-   builds and deploys the `public/` folder on every push.
+The site files sit at the top level of the repo, so `index.html` is served directly - no build step or workflow needed.
+1. Push this folder's contents to a GitHub repo (branch `main`, files at the repo root).
+2. Repo **Settings → Pages → Build and deployment → Source: Deploy from a branch → `main` / `/ (root)`** → Save.
 3. Open `https://YOUR-USER.github.io/YOUR-REPO/`.
+
+## Project layout
+```
+index.html             built game page (generated - committed so Pages can serve it)
+firebase-config.js     your Firebase web-app keys
+sw.js, manifest.webmanifest, *.png   installable-app files
+vendor/                Stockfish (GPLv3), chess.js, qrcode-generator
+src/                   source: net.js (Firebase), app.js, points.js, games/, style.css, index.template.html
+build.js               node build.js -> regenerates index.html from src/
+firestore.rules        paste into Firebase -> Firestore -> Rules
+```
 
 ## Features
 - **Google sign-in** - one tap, and your name and points follow you on every device. Tap your name in the top bar to change it or sign out.
@@ -26,11 +37,11 @@ Only two Firebase products are used: **Authentication** (Google sign-in) and **C
   difficulty, friend games give more. Edit the values in `src/points.js`, then run `node build.js`.
 - **Lobby, invites, per-game chat and 2-player games** run on Firestore.
 - **Install to home screen** - Android/desktop Chrome shows an *Install* card; iPhone shows how to use *Add to Home Screen*.
-- No connection checker, no offline page and no service-worker caching (`public/sw.js` only makes the app installable).
+- No connection checker, no offline page and no service-worker caching (`sw.js` only makes the app installable).
 
 ## Editing the code
-`src/` is the source. Run `node build.js` to regenerate `public/index.html` (the workflow also does this on deploy).
-Firebase layer: `src/net.js`. Points: `src/points.js`. Stockfish (GPLv3), chess.js and qrcode-generator live in `public/vendor`.
+`src/` is the source. After any change run `node build.js` to regenerate `index.html`, then commit both.
+Firebase layer: `src/net.js`. Points: `src/points.js`. Stockfish (GPLv3), chess.js and qrcode-generator live in `vendor/`.
 
 ## Staying inside the free Firestore limits (50k reads / 20k writes per day)
 Nothing polls and nothing listens in the background:

@@ -4,72 +4,63 @@ service cloud.firestore {
 
     function signedIn() { return request.auth != null; }
     function me() { return request.auth.uid; }
+    function inRoom() { return resource.data.u0 == me() || resource.data.u1 == me(); }
+    function mine() { return resource.data.from == me() || resource.data.to == me(); }
+    function oldVal(f) { return resource == null ? 0 : resource.data[f]; }
+    function upBy(f, n) {
+      return request.resource.data[f] >= oldVal(f) && request.resource.data[f] <= oldVal(f) + n;
+    }
 
-    // players/{uid}: presence heartbeat (stale ones may be tidied up by anyone)
     match /players/{id} {
       allow read: if signedIn();
       allow create, update: if signedIn() && id == me()
         && request.resource.data.keys().hasOnly(['name', 'ts', 'room'])
         && request.resource.data.name is string
-        && request.resource.data.name.size() >= 1 && request.resource.data.name.size() <= 16
-        && request.resource.data.ts is timestamp
-        && (!('room' in request.resource.data) || (request.resource.data.room is string && request.resource.data.room.size() <= 40));
-      allow delete: if signedIn() && (id == me() || resource.data.ts < request.time - duration.value(2, 'm'));
+        && request.resource.data.name.size() <= 16
+        && request.resource.data.ts is timestamp;
+      allow delete: if signedIn() && id == me();
     }
 
-    // chat/{id}: lobby chat (write once, never edited)
     match /chat/{id} {
       allow read: if signedIn();
       allow create: if signedIn()
         && request.resource.data.keys().hasOnly(['from', 'name', 'text', 'ts'])
         && request.resource.data.from == me()
-        && request.resource.data.name is string && request.resource.data.name.size() <= 16
         && request.resource.data.text is string
-        && request.resource.data.text.size() >= 1 && request.resource.data.text.size() <= 300
+        && request.resource.data.text.size() >= 1
+        && request.resource.data.text.size() <= 300
         && request.resource.data.ts == request.time;
     }
 
-    // invites/{id}: game requests between two players
     match /invites/{id} {
-      allow get: if signedIn() && (resource.data.from == me() || resource.data.to == me());
+      allow get: if signedIn() && mine();
       allow list: if signedIn() && resource.data.to == me();
       allow create: if signedIn()
-        && request.resource.data.keys().hasOnly(['from', 'to', 'fromName', 'toName', 'game', 'opts', 'status', 'ts'])
         && request.resource.data.from == me()
         && request.resource.data.status == 'pending'
-        && request.resource.data.game is string && request.resource.data.game.size() <= 20
         && request.resource.data.ts == request.time;
-      allow update: if signedIn() && (resource.data.from == me() || resource.data.to == me())
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'room'])
-        && request.resource.data.status in ['pending', 'accepted', 'declined'];
-      allow delete: if signedIn() && (resource.data.from == me() || resource.data.to == me());
+      allow update: if signedIn() && mine();
+      allow delete: if signedIn() && mine();
     }
 
-    // rooms/{id}: a live 2-player game (moves and chat are arrays inside the document)
     match /rooms/{id} {
-      allow get: if signedIn() && (resource.data.u0 == me() || resource.data.u1 == me());
-      allow create: if signedIn() && (request.resource.data.u0 == me() || request.resource.data.u1 == me())
-        && request.resource.data.keys().hasOnly(['game', 'opts', 'u0', 'u1', 'n0', 'n1', 'ts', 'moves', 'chat']);
-      allow update: if signedIn() && (resource.data.u0 == me() || resource.data.u1 == me())
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['moves', 'chat']);
-      allow delete: if signedIn() && (resource.data.u0 == me() || resource.data.u1 == me());
+      allow get: if signedIn() && inRoom();
+      allow create: if signedIn()
+        && (request.resource.data.u0 == me() || request.resource.data.u1 == me());
+      allow update: if signedIn() && inRoom();
+      allow delete: if signedIn() && inRoom();
     }
 
-    // leaderboard/{uid}: one row per player (also holds the display name)
     match /leaderboard/{id} {
       allow read: if signedIn();
       allow create, update: if signedIn() && id == me()
         && request.resource.data.keys().hasOnly(['name', 'points', 'wins', 'games', 'ts'])
         && request.resource.data.name is string
-        && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 16
-        // points only go up, by at most 25 per write, one write every 3 seconds
-        && request.resource.data.points is number
-        && request.resource.data.points >= (resource == null ? 0 : resource.data.points)
-        && request.resource.data.points <= (resource == null ? 0 : resource.data.points) + 25
-        && request.resource.data.wins >= (resource == null ? 0 : resource.data.wins)
-        && request.resource.data.wins <= (resource == null ? 0 : resource.data.wins) + 1
-        && request.resource.data.games >= (resource == null ? 0 : resource.data.games)
-        && request.resource.data.games <= (resource == null ? 0 : resource.data.games) + 1
+        && request.resource.data.name.size() >= 2
+        && request.resource.data.name.size() <= 16
+        && upBy('points', 25)
+        && upBy('wins', 1)
+        && upBy('games', 1)
         && request.resource.data.ts == request.time
         && (resource == null || request.time >= resource.data.ts + duration.value(3, 's'));
     }

@@ -1,0 +1,32 @@
+{
+  "name": "بطلوا رغي · Battalo Ra4y",
+  "short_name": "Battalo Ra4y",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#e8f3ff",
+  "theme_color": "#e8f3ff",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "id": "./",
+  "scope": "./",
+  "orientation": "portrait",
+  "description": "Chess, Sudoku and classic games to play with friends. Less talking, more playing."
+}
