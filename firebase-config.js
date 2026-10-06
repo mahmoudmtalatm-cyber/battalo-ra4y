@@ -1,7 +1,6 @@
-/* Paste YOUR Firebase web-app settings here
- * (Firebase console -> Project settings -> General -> Your apps -> Web app -> SDK setup and configuration).
+/* Firebase web-app settings for this project.
  * These values are not secrets: your data is protected by firestore.rules. */
-const firebaseConfig = {
+window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyASS0y_FTFWZeOaLHQgEc98qYA7lztP5dc",
   authDomain: "anu-sora-bot.firebaseapp.com",
   projectId: "anu-sora-bot",
