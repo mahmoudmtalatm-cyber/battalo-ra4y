@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#e8f3ff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Battalo Ra4y">
+<title>بطلوا رغي · Battalo Ra4y</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+<link rel="shortcut icon" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+/*__CSS__*/
+</style>
+</head>
+<body>
+<div id="loader" role="status" aria-live="polite">
+  <div class="ld-bubbles"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="ld-card">
+    <div class="ld-logo"><span class="ld-ring"></span><span class="ld-ring r2"></span><div class="logo big"><img src="logo.png" alt="" width="132" height="132"></div></div>
+    <div class="ld-ar" lang="ar" dir="rtl">بطلوا رغي</div>
+    <div class="ld-fr">Battalo Ra4y</div>
+    <div class="ld-bar"><i id="ldFill"></i></div>
+    <div class="ld-txt"><span id="ldMsg">Warming things up…</span> <b id="ldPct">0%</b></div>
+  </div>
+</div>
+<div class="app" id="app">
+  <header class="topbar">
+    <div class="logo"><img src="logo.png" alt="Battalo Ra4y logo" width="54" height="54"></div>
+    <div class="brand">
+      <div class="ar" lang="ar" dir="rtl">بطلوا رغي</div>
+      <div class="fr">Battalo Ra4y</div>
+    </div>
+    <div class="pts" id="ptsChip" hidden>⭐ 0</div>
+    <button class="conn" id="conn" type="button" aria-label="Account" hidden><i></i><span></span></button>
+  </header>
+
+  <main class="views">
+    <section class="view active" id="homeView"></section>
+    <section class="view" id="lobbyView"></section>
+    <section class="view" id="chatView">
+      <div class="h2" style="margin-top:8px">Lobby chat</div>
+      <div id="chatHost"></div>
+    </section>
+    <section class="view" id="ranksView"></section>
+    <section class="view" id="watchView"></section>
+  </main>
+
+  <nav class="tabbar">
+    <button class="tab active" data-v="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="5"/><path d="M7 10v4M5 12h4"/><circle cx="15.5" cy="11" r=".6"/><circle cx="18" cy="13" r=".6"/></svg>Games</button>
+    <button class="tab" data-v="lobby"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><circle cx="17.5" cy="9" r="2.6"/><path d="M17 14.2c2.7.2 4.5 2 4.5 5"/></svg>Lobby<span class="badge" id="lobbyBadge" hidden></span></button>
+    <button class="tab" data-v="chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8.5 8.5 0 0 1-12.2 7.6L3.5 21l1.4-5A8.5 8.5 0 1 1 21 12z"/></svg>Chat</button>
+    <button class="tab" data-v="ranks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/></svg>Ranks</button>
+    <button class="tab" data-v="watch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="13" rx="3"/><path d="M10 8.5v4l3.5-2z"/><path d="M8 21h8"/></svg>Watch<span class="dot"></span></button>
+  </nav>
+</div>
+
+<div id="gameRoot"></div>
+<div id="inviteBox"></div>
+<div id="layer"></div>
+<div class="toasts" id="toasts"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="vendor/chess.js"></script>
+<script src="vendor/qrcode.js"></script>
+<script>
+/*__JS__*/
+</script>
+</body>
+</html>

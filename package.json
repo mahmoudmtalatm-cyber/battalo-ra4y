@@ -1,0 +1,1 @@
+{"name":"battalo-ra4y","version":"3.0.0","description":"Multiplayer games for friends - hosted on GitHub Pages, powered by Firebase","scripts":{"build":"node build.js"},"license":"GPL-3.0-or-later"}
